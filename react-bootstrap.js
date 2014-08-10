@@ -602,6 +602,7 @@ define('constants',['require','exports','module'],function (require, exports, mo
     'form': 'form',
     'glyphicon': 'glyphicon',
     'label': 'label',
+    'list-group-item': 'list-group-item',
     'panel': 'panel',
     'panel-group': 'panel-group',
     'progress-bar': 'progress-bar',
@@ -998,7 +999,7 @@ var PanelGroup = React.createClass({displayName: 'PanelGroup',
 
   render: function () {
     return this.transferPropsTo(
-      React.DOM.div( {className:classSet(this.getBsClassSet())}, 
+      React.DOM.div( {className:classSet(this.getBsClassSet()), onSelect:null}, 
         ValidComponentChildren.map(this.props.children, this.renderPanel)
       )
     );
@@ -1477,11 +1478,99 @@ module.exports = Badge;
 
 });
 
-define('Button',['require','exports','module','react','./utils/classSet','./BootstrapMixin'],function (require, exports, module) {/** @jsx React.DOM */
+define('utils/CustomPropTypes',['require','exports','module','react'],function (require, exports, module) {var React = require('react');
+
+var ANONYMOUS = '<<anonymous>>';
+
+var CustomPropTypes = {
+  /**
+   * Checks whether a prop is a valid React class
+   *
+   * @param props
+   * @param propName
+   * @param componentName
+   * @returns {Error|undefined}
+   */
+  componentClass: createComponentClassChecker(),
+
+  /**
+   * Checks whether a prop provides a DOM element
+   *
+   * The element can be provided in two forms:
+   * - Directly passed
+   * - Or passed an object which has a `getDOMNode` method which will return the required DOM element
+   *
+   * @param props
+   * @param propName
+   * @param componentName
+   * @returns {Error|undefined}
+   */
+  mountable: createMountableChecker()
+};
+
+/**
+ * Create chain-able isRequired validator
+ *
+ * Largely copied directly from:
+ *  https://github.com/facebook/react/blob/0.11-stable/src/core/ReactPropTypes.js#L94
+ */
+function createChainableTypeChecker(validate) {
+  function checkType(isRequired, props, propName, componentName) {
+    componentName = componentName || ANONYMOUS;
+    if (props[propName] == null) {
+      if (isRequired) {
+        return new Error(
+          'Required prop `' + propName + '` was not specified in ' +
+            '`' + componentName + '`.'
+        );
+      }
+    } else {
+      return validate(props, propName, componentName, location);
+    }
+  }
+
+  var chainedCheckType = checkType.bind(null, false);
+  chainedCheckType.isRequired = checkType.bind(null, true);
+
+  return chainedCheckType;
+}
+
+function createComponentClassChecker() {
+  function validate(props, propName, componentName) {
+    if (!React.isValidClass(props[propName])) {
+      return new Error(
+        'Invalid prop `' + propName + '` supplied to ' +
+          '`' + componentName + '`, expected a valid React class.'
+      );
+    }
+  }
+
+  return createChainableTypeChecker(validate);
+}
+
+function createMountableChecker() {
+  function validate(props, propName, componentName) {
+    if (typeof props[propName] !== 'object' ||
+      typeof props[propName].getDOMNode !== 'function' && props[propName].nodeType !== 1) {
+      return new Error(
+        'Invalid prop `' + propName + '` supplied to ' +
+          '`' + componentName + '`, expected a DOM element or an object that has a `getDOMNode` method'
+      );
+    }
+  }
+
+  return createChainableTypeChecker(validate);
+}
+
+module.exports = CustomPropTypes;
+});
+
+define('Button',['require','exports','module','react','./utils/classSet','./BootstrapMixin','./utils/CustomPropTypes'],function (require, exports, module) {/** @jsx React.DOM */
 
 var React = require('react');
 var classSet = require('./utils/classSet');
 var BootstrapMixin = require('./BootstrapMixin');
+var CustomPropTypes = require('./utils/CustomPropTypes');
 
 var Button = React.createClass({displayName: 'Button',
   mixins: [BootstrapMixin],
@@ -1491,7 +1580,8 @@ var Button = React.createClass({displayName: 'Button',
     disabled: React.PropTypes.bool,
     block:    React.PropTypes.bool,
     navItem:    React.PropTypes.bool,
-    navDropdown: React.PropTypes.bool
+    navDropdown: React.PropTypes.bool,
+    componentClass: CustomPropTypes.componentClass
   },
 
   getDefaultProps: function () {
@@ -1520,11 +1610,12 @@ var Button = React.createClass({displayName: 'Button',
   },
 
   renderAnchor: function (classes) {
+    var component = this.props.componentClass || React.DOM.a;
     var href = this.props.href || '#';
     classes['disabled'] = this.props.disabled;
 
     return this.transferPropsTo(
-      React.DOM.a(
+      component(
         {href:href,
         className:classSet(classes),
         role:"button"}, 
@@ -1534,8 +1625,10 @@ var Button = React.createClass({displayName: 'Button',
   },
 
   renderButton: function (classes) {
+    var component = this.props.componentClass || React.DOM.button;
+
     return this.transferPropsTo(
-      React.DOM.button(
+      component(
         {className:classSet(classes)}, 
         this.props.children
       )
@@ -1556,6 +1649,7 @@ var Button = React.createClass({displayName: 'Button',
 });
 
 module.exports = Button;
+
 });
 
 define('ButtonGroup',['require','exports','module','react','./utils/classSet','./BootstrapMixin','./Button'],function (require, exports, module) {/** @jsx React.DOM */
@@ -2131,48 +2225,6 @@ var CarouselItem = React.createClass({displayName: 'CarouselItem',
 module.exports = CarouselItem;
 });
 
-define('utils/CustomPropTypes',['require','exports','module','react'],function (require, exports, module) {var React = require('react');
-
-var CustomPropTypes = {
-  /**
-   * Checks whether a prop is a valid React class
-   *
-   * @param props
-   * @param propName
-   * @param componentName
-   * @returns {Error|undefined}
-   */
-  componentClass: function (props, propName, componentName) {
-    if (!React.isValidClass(props[propName])) {
-      return new Error('Invalid `' + propName + '` prop in `' + componentName + '`, expected be ' +
-        'a valid React class');
-    }
-  },
-
-  /**
-   * Checks whether a prop provides a DOM element
-   *
-   * The element can be provided in two forms:
-   * - Directly passed
-   * - Or passed an object which has a `getDOMNode` method which will return the required DOM element
-   *
-   * @param props
-   * @param propName
-   * @param componentName
-   * @returns {Error|undefined}
-   */
-  mountable: function (props, propName, componentName) {
-    if (typeof props[propName] !== 'object' ||
-      typeof props[propName].getDOMNode !== 'function' && props[propName].nodeType !== 1) {
-      return new Error('Invalid `' + propName + '` prop in `' + componentName + '`, expected be ' +
-        'a DOM element or an object that has a `getDOMNode` method');
-    }
-  }
-};
-
-module.exports = CustomPropTypes;
-});
-
 define('Col',['require','exports','module','react','./utils/classSet','./utils/CustomPropTypes','./constants'],function (require, exports, module) {/** @jsx React.DOM */
 
 var React = require('react');
@@ -2199,7 +2251,7 @@ var Col = React.createClass({displayName: 'Col',
     smPull: React.PropTypes.number,
     mdPull: React.PropTypes.number,
     lgPull: React.PropTypes.number,
-    componentClass: CustomPropTypes.componentClass
+    componentClass: CustomPropTypes.componentClass.isRequired
   },
 
   getDefaultProps: function () {
@@ -2760,7 +2812,7 @@ var CustomPropTypes = require('./utils/CustomPropTypes');
 var Grid = React.createClass({displayName: 'Grid',
   propTypes: {
     fluid: React.PropTypes.bool,
-    componentClass: CustomPropTypes.componentClass
+    componentClass: CustomPropTypes.componentClass.isRequired
   },
 
   getDefaultProps: function () {
@@ -2783,10 +2835,11 @@ var Grid = React.createClass({displayName: 'Grid',
 module.exports = Grid;
 });
 
-define('Input',['require','exports','module','react','./utils/classSet'],function (require, exports, module) {/** @jsx React.DOM */
+define('Input',['require','exports','module','react','./utils/classSet','./Button'],function (require, exports, module) {/** @jsx React.DOM */
 
 var React = require('react');
 var classSet = require('./utils/classSet');
+var Button = require('./Button');
 
 var Input = React.createClass({displayName: 'Input',
   propTypes: {
@@ -2795,7 +2848,15 @@ var Input = React.createClass({displayName: 'Input',
     help: React.PropTypes.renderable,
     addonBefore: React.PropTypes.renderable,
     addonAfter: React.PropTypes.renderable,
-    bsStyle: React.PropTypes.oneOf(['success', 'warning', 'error']),
+    bsStyle: function(props) {
+      if (props.type === 'submit') {
+        // Return early if `type=submit` as the `Button` component
+        // it transfers these props to has its own propType checks.
+        return;
+      }
+
+      return React.PropTypes.oneOf(['success', 'warning', 'error']).apply(null, arguments);
+    },
     hasFeedback: React.PropTypes.bool,
     groupClassName: React.PropTypes.string,
     wrapperClassName: React.PropTypes.string,
@@ -2849,6 +2910,11 @@ var Input = React.createClass({displayName: 'Input',
           React.DOM.p( {className:"form-control-static", ref:"input",  key:"input"}, 
             this.props.value
           )
+        );
+        break;
+      case 'submit':
+        input = this.transferPropsTo(
+          Button( {componentClass:React.DOM.input} )
         );
         break;
       default:
@@ -3116,6 +3182,134 @@ var Label = React.createClass({displayName: 'Label',
 });
 
 module.exports = Label;
+});
+
+define('ListGroup',['require','exports','module','react','./utils/classSet','./utils/cloneWithProps','./utils/ValidComponentChildren','./utils/createChainedFunction'],function (require, exports, module) {/** @jsx React.DOM */
+
+var React = require('react');
+var classSet = require('./utils/classSet');
+var cloneWithProps = require('./utils/cloneWithProps');
+var ValidComponentChildren = require('./utils/ValidComponentChildren');
+var createChainedFunction = require('./utils/createChainedFunction');
+
+var ListGroup = React.createClass({displayName: 'ListGroup',
+  propTypes: {
+    onClick: React.PropTypes.func
+  },
+
+  render: function () {
+    return (
+      React.DOM.div( {className:"list-group"}, 
+        ValidComponentChildren.map(this.props.children, this.renderListItem)
+      )
+    );
+  },
+
+  renderListItem: function (child) {
+    return cloneWithProps(child, {
+      onClick: createChainedFunction(child.props.onClick, this.props.onClick),
+      ref: child.props.ref,
+      key: child.props.key
+    });
+  }
+});
+
+module.exports = ListGroup;
+
+});
+
+define('ListGroupItem',['require','exports','module','react','./BootstrapMixin','./utils/classSet','./utils/cloneWithProps','./utils/ValidComponentChildren'],function (require, exports, module) {/** @jsx React.DOM */
+
+var React = require('react');
+var BootstrapMixin = require('./BootstrapMixin');
+var classSet = require('./utils/classSet');
+var cloneWithProps = require('./utils/cloneWithProps');
+var ValidComponentChildren = require('./utils/ValidComponentChildren');
+
+var ListGroupItem = React.createClass({displayName: 'ListGroupItem',
+  mixins: [BootstrapMixin],
+
+  propTypes: {
+    bsStyle: React.PropTypes.oneOf(['danger','info','success','warning']),
+    active: React.PropTypes.any,
+    disabled: React.PropTypes.any,
+    header: React.PropTypes.renderable,
+    onClick: React.PropTypes.func
+  },
+
+  getDefaultProps: function () {
+    return {
+      bsClass: 'list-group-item'
+    };
+  },
+
+  render: function () {
+    var classes = this.getBsClassSet();
+
+    classes['active'] = this.props.active;
+    classes['disabled'] = this.props.disabled;
+
+    if (this.props.href || this.props.onClick) {
+      return this.renderAnchor(classes);
+    } else {
+      return this.renderSpan(classes);
+    }
+  },
+
+  renderSpan: function (classes) {
+    return this.transferPropsTo(
+      React.DOM.span( {className:classSet(classes)}, 
+        this.props.header ? this.renderStructuredContent() : this.props.children
+      )
+    );
+  },
+
+  renderAnchor: function (classes) {
+    return this.transferPropsTo(
+      React.DOM.a(
+        {className:classSet(classes),
+        onClick:this.handleClick}, 
+        this.props.header ? this.renderStructuredContent() : this.props.children
+      )
+    );
+  },
+
+  renderStructuredContent: function () {
+    var header;
+    if (React.isValidComponent(this.props.header)) {
+      header = cloneWithProps(this.props.header, {
+        className: 'list-group-item-heading'
+      });
+    } else {
+      header = (
+        React.DOM.h4( {className:"list-group-item-heading"}, 
+          this.props.header
+        )
+      );
+    }
+
+    var content = (
+      React.DOM.p( {className:"list-group-item-text"}, 
+        this.props.children
+      )
+    );
+
+    return {
+      header: header,
+      content: content
+    };
+  },
+
+  handleClick: function (e) {
+    if (this.props.onClick) {
+      e.preventDefault();
+      this.props.onClick(this.props.key, this.props.href);
+    }
+  }
+});
+
+module.exports = ListGroupItem;
+
 });
 
 define('MenuItem',['require','exports','module','react','./utils/classSet'],function (require, exports, module) {/** @jsx React.DOM */
@@ -3451,7 +3645,7 @@ var Navbar = React.createClass({displayName: 'Navbar',
     inverse: React.PropTypes.bool,
     fluid: React.PropTypes.bool,
     role: React.PropTypes.string,
-    componentClass: CustomPropTypes.componentClass,
+    componentClass: CustomPropTypes.componentClass.isRequired,
     brand: React.PropTypes.renderable,
     toggleButton: React.PropTypes.renderable,
     onToggle: React.PropTypes.func,
@@ -3638,11 +3832,15 @@ module.exports = {
 
   getDefaultProps: function () {
     return {
-      container: typeof document !== 'undefined' ? document.body : {
-        // If we are in an environment that doesnt have `document` defined it should be
-        // safe to assume that `componentDidMount` will not run and this will be needed,
-        // just provide enough fake API to pass the propType validation.
-        getDOMNode: function noop() {}
+      container: {
+        // Provide `getDOMNode` fn mocking a React component API. The `document.body`
+        // reference needs to be contained within this function so that it is not accessed
+        // in environments where it would not be defined, e.g. nodejs. Equally this is needed
+        // before the body is defined where `document.body === null`, this ensures
+        // `document.body` is only accessed after componentDidMount.
+        getDOMNode: function getDOMNode() {
+          return document.body;
+        }
       }
     };
   },
@@ -4017,9 +4215,9 @@ var Panel = React.createClass({displayName: 'Panel',
   mixins: [BootstrapMixin, CollapsableMixin],
 
   propTypes: {
+    onSelect: React.PropTypes.func,
     header: React.PropTypes.renderable,
-    footer: React.PropTypes.renderable,
-    onClick: React.PropTypes.func
+    footer: React.PropTypes.renderable
   },
 
   getDefaultProps: function () {
@@ -4064,7 +4262,7 @@ var Panel = React.createClass({displayName: 'Panel',
     classes['panel'] = true;
 
     return this.transferPropsTo(
-      React.DOM.div( {className:classSet(classes), id:this.props.collapsable ? null : this.props.id}, 
+      React.DOM.div( {className:classSet(classes), id:this.props.collapsable ? null : this.props.id, onSelect:null}, 
         this.renderHeading(),
         this.props.collapsable ? this.renderCollapsableBody() : this.renderBody(),
         this.renderFooter()
@@ -4446,7 +4644,7 @@ var CustomPropTypes = require('./utils/CustomPropTypes');
 
 var Row = React.createClass({displayName: 'Row',
   propTypes: {
-    componentClass: CustomPropTypes.componentClass
+    componentClass: CustomPropTypes.componentClass.isRequired
   },
 
   getDefaultProps: function () {
@@ -5053,7 +5251,7 @@ module.exports = Well;
 
 /*global define */
 
-define('react-bootstrap',['require','./Accordion','./Affix','./AffixMixin','./Alert','./BootstrapMixin','./Badge','./Button','./ButtonGroup','./ButtonToolbar','./Carousel','./CarouselItem','./Col','./CollapsableMixin','./DropdownButton','./DropdownMenu','./DropdownStateMixin','./FadeMixin','./Glyphicon','./Grid','./Input','./Interpolate','./Jumbotron','./Label','./MenuItem','./Modal','./Nav','./Navbar','./NavItem','./ModalTrigger','./OverlayTrigger','./OverlayMixin','./PageHeader','./Panel','./PanelGroup','./PageItem','./Pager','./Popover','./ProgressBar','./Row','./SplitButton','./SubNav','./TabbedArea','./Table','./TabPane','./Tooltip','./Well'],function (require) {
+define('react-bootstrap',['require','./Accordion','./Affix','./AffixMixin','./Alert','./BootstrapMixin','./Badge','./Button','./ButtonGroup','./ButtonToolbar','./Carousel','./CarouselItem','./Col','./CollapsableMixin','./DropdownButton','./DropdownMenu','./DropdownStateMixin','./FadeMixin','./Glyphicon','./Grid','./Input','./Interpolate','./Jumbotron','./Label','./ListGroup','./ListGroupItem','./MenuItem','./Modal','./Nav','./Navbar','./NavItem','./ModalTrigger','./OverlayTrigger','./OverlayMixin','./PageHeader','./Panel','./PanelGroup','./PageItem','./Pager','./Popover','./ProgressBar','./Row','./SplitButton','./SubNav','./TabbedArea','./Table','./TabPane','./Tooltip','./Well'],function (require) {
   
 
   return {
@@ -5080,6 +5278,8 @@ define('react-bootstrap',['require','./Accordion','./Affix','./AffixMixin','./Al
     Interpolate: require('./Interpolate'),
     Jumbotron: require('./Jumbotron'),
     Label: require('./Label'),
+    ListGroup: require('./ListGroup'),
+    ListGroupItem: require('./ListGroupItem'),
     MenuItem: require('./MenuItem'),
     Modal: require('./Modal'),
     Nav: require('./Nav'),
@@ -5105,6 +5305,7 @@ define('react-bootstrap',['require','./Accordion','./Affix','./AffixMixin','./Al
     Well: require('./Well')
   };
 });
+
     //Register in the values from the outer closure for common dependencies
     //as local almond modules
     define('react', function () {
